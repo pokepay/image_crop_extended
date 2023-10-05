@@ -21,18 +21,23 @@
         NSNumber* right = (NSNumber*)call.arguments[@"right"];
         NSNumber* bottom = (NSNumber*)call.arguments[@"bottom"];
         NSNumber* scale = (NSNumber*)call.arguments[@"scale"];
+        NSNumber* imageFormatFFI = (NSNumber *)call.arguments[@"imageFormat"];
+        UTType* imageFormat = imageFormat = 0 ? UTTypePNG : UTTypeJPEG;
         CGRect area = CGRectMake(left.floatValue, top.floatValue,
                                  right.floatValue - left.floatValue,
                                  bottom.floatValue - top.floatValue);
-        [self cropImage:path area:area scale:scale result:result];
+        [self cropImage:path area:area scale:scale result:result imageFormat: imageFormat];
     } else if ([@"sampleImage" isEqualToString:call.method]) {
         NSString* path = (NSString*)call.arguments[@"path"];
         NSNumber* maximumWidth = (NSNumber*)call.arguments[@"maximumWidth"];
         NSNumber* maximumHeight = (NSNumber*)call.arguments[@"maximumHeight"];
+        NSNumber* imageFormatFFI = (NSNumber *)call.arguments[@"imageFormat"];
+        UTType* imageFormat = imageFormat = 0 ? UTTypePNG : UTTypeJPEG;
         [self sampleImage:path
              maximumWidth:maximumWidth
             maximumHeight:maximumHeight
-                   result:result];
+                   result:result
+              imageFormat:imageFormat];
     } else if ([@"getImageOptions" isEqualToString:call.method]) {
         NSString* path = (NSString*)call.arguments[@"path"];
         [self getImageOptions:path result:result];
@@ -46,7 +51,8 @@
 - (void)cropImage:(NSString*)path
              area:(CGRect)area
             scale:(NSNumber*)scale
-           result:(FlutterResult)result {
+           result:(FlutterResult)result
+           imageFormat: (UTType *) imageFormat{
     [self execute:^{
         NSURL* url = [NSURL fileURLWithPath:path];
         CGImageSourceRef imageSource = CGImageSourceCreateWithURL((CFURLRef) url, NULL);
@@ -120,8 +126,8 @@
             croppedImage = scaledImage;
         }
         
-        NSURL* croppedUrl = [self createTemporaryImageUrl];
-        bool saved = [self saveImage:croppedImage url:croppedUrl];
+        NSURL* croppedUrl = [self createTemporaryImageUrl imageFormat:imageFormat];
+        bool saved = [self saveImage:croppedImage url:croppedUrl imageFormat:imageFormat];
         CFRelease(croppedImage);
         
         if (saved) {
@@ -137,7 +143,8 @@
 - (void)sampleImage:(NSString*)path
        maximumWidth:(NSNumber*)maximumWidth
       maximumHeight:(NSNumber*)maximumHeight
-             result:(FlutterResult)result {
+             result:(FlutterResult)result
+          imageFormat:(UTType *) imageFormat{
     [self execute:^{
         NSURL* url = [NSURL fileURLWithPath:path];
         CGImageSourceRef image = CGImageSourceCreateWithURL((CFURLRef) url, NULL);
@@ -183,8 +190,8 @@
             return;
         }
 
-        NSURL* sampleUrl = [self createTemporaryImageUrl];
-        bool saved = [self saveImage:sampleImage url:sampleUrl];
+        NSURL* sampleUrl = [self createTemporaryImageUrl imageFormat:imageFormat];
+        bool saved = [self saveImage:sampleImage url:sampleUrl imageFormat:imageFormat];
         CFRelease(sampleImage);
         
         if (saved) {
@@ -237,8 +244,8 @@
     }];
 }
 
-- (bool)saveImage:(CGImageRef)image url:(NSURL*)url {
-    CGImageDestinationRef destination = CGImageDestinationCreateWithURL((CFURLRef) url, kUTTypeJPEG, 1, NULL);
+- (bool)saveImage:(CGImageRef)image url:(NSURL*)url imageFormat:(UTType *)imageFormat {
+    CGImageDestinationRef destination = CGImageDestinationCreateWithURL((CFURLRef) url, (__bridge CFStringRef) imageFormat, 1, NULL);
     CGImageDestinationAddImage(destination, image, NULL);
     
     bool finilized = CGImageDestinationFinalize(destination);
@@ -247,10 +254,11 @@
     return finilized;
 }
 
-- (NSURL*)createTemporaryImageUrl {
+- (NSURL*)createTemporaryImageUrl imageFormat:(UTType *)imageFormat {
+    NSString* ext = imageFormat == UTTypePNG ? @".png" : @".jpg"; 
     NSString* temproraryDirectory = NSTemporaryDirectory();
     NSString* guid = [[NSProcessInfo processInfo] globallyUniqueString];
-    NSString* sampleName = [[@"image_crop_plus_" stringByAppendingString:guid] stringByAppendingString:@".jpg"];
+    NSString* sampleName = [[@"image_crop_plus_" stringByAppendingString:guid] stringByAppendingString:ext];
     NSString* samplePath = [temproraryDirectory stringByAppendingPathComponent:sampleName];
     return [NSURL fileURLWithPath:samplePath];
 }

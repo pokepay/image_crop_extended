@@ -113,6 +113,7 @@ class _MyAppState extends State<MyApp> {
     final sample = await ImageCrop.sampleImage(
       file: file,
       preferredSize: context.size!.longestSide.toInt() * 2,
+      imageFormat: ImageFormat.png,
     );
 
     _sample?.delete();
@@ -137,11 +138,13 @@ class _MyAppState extends State<MyApp> {
     final sample = await ImageCrop.sampleImage(
       file: _file!,
       preferredSize: (2000 / scale).round(),
+      imageFormat: ImageFormat.png,
     );
 
     final file = await ImageCrop.cropImage(
       file: sample,
       area: area,
+      imageFormat: ImageFormat.png,
     );
 
     sample.delete();

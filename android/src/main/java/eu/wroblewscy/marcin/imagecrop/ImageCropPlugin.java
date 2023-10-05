@@ -118,13 +118,15 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
             double top = call.argument("top");
             double right = call.argument("right");
             double bottom = call.argument("bottom");
+            int imageFormat = call.argument("imageFormat");
             RectF area = new RectF((float) left, (float) top, (float) right, (float) bottom);
-            cropImage(path, area, (float) scale, result);
+            cropImage(path, area, (float) scale, result, imageFormat == 0 ? Bitmap.CompressFormat.PNG : Bitmap.CompressFormat.JPEG);
         } else if ("sampleImage".equals(call.method)) {
             String path = call.argument("path");
             int maximumWidth = call.argument("maximumWidth");
             int maximumHeight = call.argument("maximumHeight");
-            sampleImage(path, maximumWidth, maximumHeight, result);
+            int imageFormat = call.argument("imageFormat");
+            sampleImage(path, maximumWidth, maximumHeight, result, imageFormat == 0 ? Bitmap.CompressFormat.PNG : Bitmap.CompressFormat.JPEG);
         } else if ("getImageOptions".equals(call.method)) {
             String path = call.argument("path");
             getImageOptions(path, result);
@@ -146,7 +148,7 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
         activity.runOnUiThread(runnable);
     }
 
-    private void cropImage(final String path, final RectF area, final float scale, final Result result) {
+    private void cropImage(final String path, final RectF area, final float scale, final Result result, Bitmap.CompressFormat imageFormat) {
         io(new Runnable() {
             @Override
             public void run() {
@@ -203,8 +205,8 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
                 canvas.drawBitmap(srcBitmap, srcRect, dstRect, paint);
 
                 try {
-                    final File dstFile = createTemporaryImageFile();
-                    compressBitmap(dstBitmap, dstFile);
+                    final File dstFile = createTemporaryImageFile(imageFormat);
+                    compressBitmap(dstBitmap, dstFile, imageFormat);
                     ui(new Runnable() {
                         @Override
                         public void run() {
@@ -227,7 +229,7 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
         });
     }
 
-    private void sampleImage(final String path, final int maximumWidth, final int maximumHeight, final Result result) {
+    private void sampleImage(final String path, final int maximumWidth, final int maximumHeight, final Result result, Bitmap.CompressFormat imageFormat) {
         io(new Runnable() {
             @Override
             public void run() {
@@ -266,8 +268,8 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
                 }
 
                 try {
-                    final File dstFile = createTemporaryImageFile();
-                    compressBitmap(bitmap, dstFile);
+                    final File dstFile = createTemporaryImageFile(imageFormat);
+                    compressBitmap(bitmap, dstFile, imageFormat);
                     copyExif(srcFile, dstFile);
                     ui(new Runnable() {
                         @Override
@@ -290,12 +292,12 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
     }
 
     @SuppressWarnings("TryFinallyCanBeTryWithResources")
-    private void compressBitmap(Bitmap bitmap, File file) throws IOException {
+    private void compressBitmap(Bitmap bitmap, File file, Bitmap.CompressFormat imageFormat) throws IOException {
         OutputStream outputStream = new FileOutputStream(file);
         try {
-            boolean compressed = bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream);
+            boolean compressed = bitmap.compress(imageFormat, 100, outputStream);
             if (!compressed) {
-                throw new IOException("Failed to compress bitmap into JPEG");
+                throw new IOException("Failed to compress bitmap into " + imageFormat.toString());
             }
         } finally {
             try {
@@ -380,10 +382,11 @@ public final class ImageCropPlugin implements FlutterPlugin , ActivityAware, Met
         return PackageManager.PERMISSION_DENIED;
     }
 
-    private File createTemporaryImageFile() throws IOException {
+    private File createTemporaryImageFile(Bitmap.CompressFormat imageFormat) throws IOException {
         File directory = activity.getCacheDir();
         String name = "image_crop_plus_" + UUID.randomUUID().toString();
-        return File.createTempFile(name, ".jpg", directory);
+        String ext = imageFormat  == Bitmap.CompressFormat.PNG ? ".png" : ".jpg";
+        return File.createTempFile(name, ext, directory);
     }
 
     private ImageOptions decodeImageOptions(String path) {
